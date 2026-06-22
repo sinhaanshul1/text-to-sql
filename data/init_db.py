@@ -1,9 +1,3 @@
-"""Initialize the local Shopify-style SQLite database.
-
-This script keeps database setup intentionally thin: schema and seed data live in
-SQL files so future dataset work can evolve the database without changing Python.
-"""
-
 from __future__ import annotations
 
 import argparse
