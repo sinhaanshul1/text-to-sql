@@ -51,6 +51,18 @@ CREATE TABLE IF NOT EXISTS customer_addresses (
     FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
 );
 
+CREATE TABLE IF NOT EXISTS vendors (
+    vendor_id INTEGER PRIMARY KEY,
+    merchant_id INTEGER NOT NULL,
+    vendor_name TEXT NOT NULL,
+    contact_email TEXT,
+    country_code TEXT NOT NULL,
+    average_lead_time_days INTEGER NOT NULL CHECK (average_lead_time_days >= 0),
+    is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+    UNIQUE (merchant_id, vendor_name),
+    FOREIGN KEY (merchant_id) REFERENCES merchants(merchant_id)
+);
+
 CREATE TABLE IF NOT EXISTS product_categories (
     category_id INTEGER PRIMARY KEY,
     merchant_id INTEGER NOT NULL,
@@ -65,6 +77,7 @@ CREATE TABLE IF NOT EXISTS products (
     product_id INTEGER PRIMARY KEY,
     merchant_id INTEGER NOT NULL,
     category_id INTEGER NOT NULL,
+    vendor_id INTEGER NOT NULL,
     title TEXT NOT NULL,
     vendor_name TEXT NOT NULL,
     product_type TEXT NOT NULL,
@@ -73,7 +86,29 @@ CREATE TABLE IF NOT EXISTS products (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     FOREIGN KEY (merchant_id) REFERENCES merchants(merchant_id),
-    FOREIGN KEY (category_id) REFERENCES product_categories(category_id)
+    FOREIGN KEY (category_id) REFERENCES product_categories(category_id),
+    FOREIGN KEY (vendor_id) REFERENCES vendors(vendor_id)
+);
+
+CREATE TABLE IF NOT EXISTS collections (
+    collection_id INTEGER PRIMARY KEY,
+    merchant_id INTEGER NOT NULL,
+    collection_name TEXT NOT NULL,
+    collection_type TEXT NOT NULL CHECK (collection_type IN ('manual', 'automated')),
+    handle TEXT NOT NULL,
+    published_at TEXT,
+    is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+    UNIQUE (merchant_id, handle),
+    FOREIGN KEY (merchant_id) REFERENCES merchants(merchant_id)
+);
+
+CREATE TABLE IF NOT EXISTS product_collections (
+    product_id INTEGER NOT NULL,
+    collection_id INTEGER NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0 CHECK (sort_order >= 0),
+    PRIMARY KEY (product_id, collection_id),
+    FOREIGN KEY (product_id) REFERENCES products(product_id),
+    FOREIGN KEY (collection_id) REFERENCES collections(collection_id)
 );
 
 CREATE TABLE IF NOT EXISTS product_variants (
@@ -154,6 +189,30 @@ CREATE TABLE IF NOT EXISTS orders (
     FOREIGN KEY (discount_code_id) REFERENCES discount_codes(discount_code_id)
 );
 
+CREATE TABLE IF NOT EXISTS subscriptions (
+    subscription_id INTEGER PRIMARY KEY,
+    merchant_id INTEGER NOT NULL,
+    customer_id INTEGER NOT NULL,
+    subscription_status TEXT NOT NULL CHECK (subscription_status IN ('active', 'paused', 'cancelled', 'expired')),
+    billing_interval TEXT NOT NULL CHECK (billing_interval IN ('weekly', 'monthly', 'quarterly', 'annual')),
+    started_at TEXT NOT NULL,
+    next_billing_at TEXT,
+    cancelled_at TEXT,
+    cancellation_reason TEXT,
+    FOREIGN KEY (merchant_id) REFERENCES merchants(merchant_id),
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+);
+
+CREATE TABLE IF NOT EXISTS subscription_items (
+    subscription_item_id INTEGER PRIMARY KEY,
+    subscription_id INTEGER NOT NULL,
+    variant_id INTEGER NOT NULL,
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    unit_price_cents INTEGER NOT NULL CHECK (unit_price_cents >= 0),
+    FOREIGN KEY (subscription_id) REFERENCES subscriptions(subscription_id),
+    FOREIGN KEY (variant_id) REFERENCES product_variants(variant_id)
+);
+
 CREATE TABLE IF NOT EXISTS order_items (
     order_item_id INTEGER PRIMARY KEY,
     order_id INTEGER NOT NULL,
@@ -170,7 +229,7 @@ CREATE TABLE IF NOT EXISTS order_items (
 CREATE TABLE IF NOT EXISTS payments (
     payment_id INTEGER PRIMARY KEY,
     order_id INTEGER NOT NULL,
-    payment_provider TEXT NOT NULL CHECK (payment_provider IN ('stripe', 'paypal', 'shop_pay', 'gift_card', 'manual')),
+    payment_provider TEXT NOT NULL CHECK (payment_provider IN ('stripe', 'paypal', 'shop_pay', 'gift_card', 'store_credit', 'manual')),
     payment_status TEXT NOT NULL CHECK (payment_status IN ('authorized', 'captured', 'failed', 'voided', 'refunded', 'partially_refunded')),
     amount_cents INTEGER NOT NULL CHECK (amount_cents >= 0),
     transaction_reference TEXT NOT NULL UNIQUE,
@@ -189,6 +248,32 @@ CREATE TABLE IF NOT EXISTS fulfillments (
     delivered_at TEXT,
     FOREIGN KEY (order_id) REFERENCES orders(order_id),
     FOREIGN KEY (location_id) REFERENCES inventory_locations(location_id)
+);
+
+CREATE TABLE IF NOT EXISTS shipments (
+    shipment_id INTEGER PRIMARY KEY,
+    fulfillment_id INTEGER NOT NULL,
+    carrier_name TEXT NOT NULL,
+    service_level TEXT NOT NULL CHECK (service_level IN ('standard', 'expedited', 'overnight', 'freight')),
+    tracking_number TEXT NOT NULL UNIQUE,
+    shipment_status TEXT NOT NULL CHECK (shipment_status IN ('label_created', 'picked_up', 'in_transit', 'out_for_delivery', 'delivered', 'exception', 'returned')),
+    estimated_delivery_at TEXT,
+    shipped_at TEXT,
+    delivered_at TEXT,
+    shipping_cost_cents INTEGER NOT NULL DEFAULT 0 CHECK (shipping_cost_cents >= 0),
+    FOREIGN KEY (fulfillment_id) REFERENCES fulfillments(fulfillment_id)
+);
+
+CREATE TABLE IF NOT EXISTS shipment_events (
+    shipment_event_id INTEGER PRIMARY KEY,
+    shipment_id INTEGER NOT NULL,
+    event_status TEXT NOT NULL CHECK (event_status IN ('label_created', 'picked_up', 'arrived_at_facility', 'departed_facility', 'in_transit', 'out_for_delivery', 'delivered', 'exception', 'return_to_sender')),
+    event_city TEXT,
+    event_region TEXT,
+    event_country_code TEXT,
+    occurred_at TEXT NOT NULL,
+    event_notes TEXT,
+    FOREIGN KEY (shipment_id) REFERENCES shipments(shipment_id)
 );
 
 CREATE TABLE IF NOT EXISTS fulfillment_items (
@@ -231,6 +316,33 @@ CREATE TABLE IF NOT EXISTS refunds (
     FOREIGN KEY (return_id) REFERENCES returns(return_id)
 );
 
+CREATE TABLE IF NOT EXISTS store_credit_accounts (
+    store_credit_account_id INTEGER PRIMARY KEY,
+    merchant_id INTEGER NOT NULL,
+    customer_id INTEGER NOT NULL,
+    current_balance_cents INTEGER NOT NULL DEFAULT 0 CHECK (current_balance_cents >= 0),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE (merchant_id, customer_id),
+    FOREIGN KEY (merchant_id) REFERENCES merchants(merchant_id),
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+);
+
+CREATE TABLE IF NOT EXISTS store_credit_transactions (
+    store_credit_transaction_id INTEGER PRIMARY KEY,
+    store_credit_account_id INTEGER NOT NULL,
+    order_id INTEGER,
+    refund_id INTEGER,
+    transaction_type TEXT NOT NULL CHECK (transaction_type IN ('grant', 'redeem', 'refund_credit', 'adjustment', 'expire')),
+    amount_cents INTEGER NOT NULL CHECK (amount_cents > 0),
+    balance_after_cents INTEGER NOT NULL CHECK (balance_after_cents >= 0),
+    reason TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (store_credit_account_id) REFERENCES store_credit_accounts(store_credit_account_id),
+    FOREIGN KEY (order_id) REFERENCES orders(order_id),
+    FOREIGN KEY (refund_id) REFERENCES refunds(refund_id)
+);
+
 CREATE TABLE IF NOT EXISTS marketing_campaigns (
     campaign_id INTEGER PRIMARY KEY,
     merchant_id INTEGER NOT NULL,
@@ -266,6 +378,48 @@ CREATE TABLE IF NOT EXISTS cart_items (
     FOREIGN KEY (variant_id) REFERENCES product_variants(variant_id)
 );
 
+CREATE TABLE IF NOT EXISTS customer_events (
+    customer_event_id INTEGER PRIMARY KEY,
+    merchant_id INTEGER NOT NULL,
+    customer_id INTEGER,
+    session_id TEXT NOT NULL,
+    event_type TEXT NOT NULL CHECK (event_type IN ('page_view', 'product_view', 'collection_view', 'search', 'add_to_cart', 'remove_from_cart', 'checkout_started', 'checkout_completed', 'email_click')),
+    product_id INTEGER,
+    collection_id INTEGER,
+    cart_id INTEGER,
+    order_id INTEGER,
+    campaign_id INTEGER,
+    source_channel TEXT NOT NULL CHECK (source_channel IN ('direct', 'email', 'paid_search', 'paid_social', 'organic_search', 'marketplace', 'social')),
+    device_type TEXT NOT NULL CHECK (device_type IN ('desktop', 'mobile', 'tablet')),
+    occurred_at TEXT NOT NULL,
+    metadata_json TEXT,
+    FOREIGN KEY (merchant_id) REFERENCES merchants(merchant_id),
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
+    FOREIGN KEY (product_id) REFERENCES products(product_id),
+    FOREIGN KEY (collection_id) REFERENCES collections(collection_id),
+    FOREIGN KEY (cart_id) REFERENCES carts(cart_id),
+    FOREIGN KEY (order_id) REFERENCES orders(order_id),
+    FOREIGN KEY (campaign_id) REFERENCES marketing_campaigns(campaign_id)
+);
+
+CREATE TABLE IF NOT EXISTS product_reviews (
+    product_review_id INTEGER PRIMARY KEY,
+    merchant_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
+    customer_id INTEGER,
+    order_id INTEGER,
+    rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    review_title TEXT NOT NULL,
+    review_body TEXT,
+    moderation_status TEXT NOT NULL CHECK (moderation_status IN ('pending', 'approved', 'rejected')),
+    is_verified_purchase INTEGER NOT NULL DEFAULT 0 CHECK (is_verified_purchase IN (0, 1)),
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (merchant_id) REFERENCES merchants(merchant_id),
+    FOREIGN KEY (product_id) REFERENCES products(product_id),
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
+    FOREIGN KEY (order_id) REFERENCES orders(order_id)
+);
+
 CREATE TABLE IF NOT EXISTS support_tickets (
     ticket_id INTEGER PRIMARY KEY,
     merchant_id INTEGER NOT NULL,
@@ -285,12 +439,19 @@ CREATE TABLE IF NOT EXISTS support_tickets (
 
 CREATE INDEX IF NOT EXISTS idx_customers_merchant_tier ON customers(merchant_id, customer_tier);
 CREATE INDEX IF NOT EXISTS idx_products_merchant_status ON products(merchant_id, status);
+CREATE INDEX IF NOT EXISTS idx_products_vendor ON products(vendor_id);
 CREATE INDEX IF NOT EXISTS idx_orders_merchant_placed_at ON orders(merchant_id, placed_at);
 CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
 CREATE INDEX IF NOT EXISTS idx_order_items_variant ON order_items(variant_id);
 CREATE INDEX IF NOT EXISTS idx_inventory_location ON inventory_levels(location_id);
 CREATE INDEX IF NOT EXISTS idx_support_tickets_status_priority ON support_tickets(ticket_status, priority);
 CREATE INDEX IF NOT EXISTS idx_carts_status_updated_at ON carts(cart_status, updated_at);
+CREATE INDEX IF NOT EXISTS idx_customer_events_session ON customer_events(session_id, occurred_at);
+CREATE INDEX IF NOT EXISTS idx_customer_events_customer ON customer_events(customer_id, occurred_at);
+CREATE INDEX IF NOT EXISTS idx_product_reviews_product ON product_reviews(product_id, rating);
+CREATE INDEX IF NOT EXISTS idx_shipments_status ON shipments(shipment_status, estimated_delivery_at);
+CREATE INDEX IF NOT EXISTS idx_shipment_events_shipment ON shipment_events(shipment_id, occurred_at);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(merchant_id, subscription_status);
 
 CREATE VIEW IF NOT EXISTS order_profit_summary AS
 SELECT
