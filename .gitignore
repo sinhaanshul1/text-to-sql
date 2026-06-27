@@ -1,3 +1,7 @@
 AGENTS.md
 changelog.md
 .venv/
+.env
+.env.*
+__pycache__/
+data/shopify_sample.db

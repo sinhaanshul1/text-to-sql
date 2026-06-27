@@ -1,3 +1,8 @@
+## 2026-06-27
+
+- Added `data/training_corpus.jsonl` with 64 fine-tuning examples in chat JSONL format, covering realistic read and write requests across products, inventory, orders, subscriptions, returns, support, marketing, and fulfillment.
+- Added `scripts/validate_corpus.py` to recreate the seeded SQLite database and execute every corpus example as a validation gate before model training.
+
 ## 2026-06-24
 
 - Expanded the Shopify-style schema with vendors, collections, subscription tables, store credit tables, customer events, product reviews, shipments, and shipment events.
