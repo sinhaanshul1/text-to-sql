@@ -1,5 +1,6 @@
 ## 2026-06-27
 
+- Added `scripts/evaluate_sql_predictions.py` to score predicted SQL against a reference split using exact-match, normalized-match, executability, and database-result equivalence metrics, including write-query evaluation in isolated SQLite copies.
 - Added `scripts/split_training_corpus.py` to create deterministic train/validation/test splits while keeping paraphrase variants of the same SQL in the same split to reduce evaluation leakage.
 - Added `data/train.jsonl`, `data/valid.jsonl`, and `data/test.jsonl` from the 1,500-example corpus for downstream fine-tuning and evaluation.
 - Added `scripts/generate_training_corpus.py` to deterministically expand the text-to-SQL fine-tuning dataset from the hand-authored seed set to a larger schema-aware corpus.
