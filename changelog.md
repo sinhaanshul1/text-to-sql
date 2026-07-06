@@ -1,5 +1,7 @@
 ## 2026-06-27
 
+- Added `scripts/prepare_training_inputs.py` to convert split chat JSONL files into model-ready prompt/target records with prompt-only and prompt-plus-SQL text fields for baseline fine-tuning.
+- Added `scripts/train_baseline_model.py` to fine-tune a baseline causal LM on the prepared dataset with prompt token masking so loss is applied only to assistant SQL tokens.
 - Added `scripts/evaluate_sql_predictions.py` to score predicted SQL against a reference split using exact-match, normalized-match, executability, and database-result equivalence metrics, including write-query evaluation in isolated SQLite copies.
 - Added `scripts/split_training_corpus.py` to create deterministic train/validation/test splits while keeping paraphrase variants of the same SQL in the same split to reduce evaluation leakage.
 - Added `data/train.jsonl`, `data/valid.jsonl`, and `data/test.jsonl` from the 1,500-example corpus for downstream fine-tuning and evaluation.
