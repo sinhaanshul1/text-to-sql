@@ -6,4 +6,6 @@ changelog.md
 .env.*
 __pycache__/
 data/shopify_sample.db
+data/prepared/
+artifacts/
 scripts/
