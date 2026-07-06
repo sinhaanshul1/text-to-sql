@@ -1,5 +1,6 @@
 ## 2026-06-27
 
+- Updated the training prep and baseline trainer to support tokenizer-native chat templates, including Qwen-compatible prompt rendering and assistant-only loss masking over chat-formatted examples.
 - Added `scripts/prepare_training_inputs.py` to convert split chat JSONL files into model-ready prompt/target records with prompt-only and prompt-plus-SQL text fields for baseline fine-tuning.
 - Added `scripts/train_baseline_model.py` to fine-tune a baseline causal LM on the prepared dataset with prompt token masking so loss is applied only to assistant SQL tokens.
 - Added `scripts/evaluate_sql_predictions.py` to score predicted SQL against a reference split using exact-match, normalized-match, executability, and database-result equivalence metrics, including write-query evaluation in isolated SQLite copies.

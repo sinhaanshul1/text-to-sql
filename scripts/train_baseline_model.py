@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -115,9 +116,47 @@ class TokenizedRecord:
     labels: list[int]
 
 
+def supports_chat_template(tokenizer: Any) -> bool:
+    chat_template = getattr(tokenizer, "chat_template", None)
+    return isinstance(chat_template, str) and bool(chat_template.strip())
+
+
+def build_chat_template_kwargs(tokenizer: Any, add_generation_prompt: bool) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {
+        "tokenize": False,
+        "add_generation_prompt": add_generation_prompt,
+    }
+
+    signature = inspect.signature(tokenizer.apply_chat_template)
+    if "enable_thinking" in signature.parameters:
+        # Keep SQL outputs concise for training/inference formatting on hybrid reasoning models.
+        kwargs["enable_thinking"] = False
+
+    return kwargs
+
+
+def render_record_texts(record: dict[str, Any], tokenizer: Any) -> tuple[str, str]:
+    if supports_chat_template(tokenizer):
+        full_messages = record["messages"]
+        prompt_messages = record.get("prompt_messages")
+        if not prompt_messages:
+            prompt_messages = [message for message in full_messages if message.get("role") != "assistant"]
+
+        prompt_text = tokenizer.apply_chat_template(
+            prompt_messages,
+            **build_chat_template_kwargs(tokenizer, add_generation_prompt=True),
+        )
+        train_text = tokenizer.apply_chat_template(
+            full_messages,
+            **build_chat_template_kwargs(tokenizer, add_generation_prompt=False),
+        )
+        return str(prompt_text), str(train_text)
+
+    return str(record["prompt_text"]), str(record["train_text"])
+
+
 def encode_record(record: dict[str, Any], tokenizer: Any, max_length: int) -> TokenizedRecord:
-    prompt_text = str(record["prompt_text"])
-    train_text = str(record["train_text"])
+    prompt_text, train_text = render_record_texts(record, tokenizer)
 
     full_encoding = tokenizer(
         train_text,
@@ -208,6 +247,11 @@ def main() -> None:
             task_type="CAUSAL_LM",
         )
         model = get_peft_model(model, lora_config)
+
+    if supports_chat_template(tokenizer):
+        print(f"Using tokenizer chat template for {args.model_name_or_path}")
+    else:
+        print(f"Tokenizer has no chat template; falling back to plain-text prompt formatting for {args.model_name_or_path}")
 
     def tokenize_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
         tokenized_rows: list[dict[str, Any]] = []

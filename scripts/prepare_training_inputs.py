@@ -79,6 +79,8 @@ def prepare_example(example: dict[str, Any], example_id: str, split_name: str) -
     user_prompt = extract_message(example, "user")
     assistant_sql = extract_message(example, "assistant").strip()
     prompt_text = render_prompt(system_prompt, user_prompt)
+    messages = example["messages"]
+    prompt_messages = [message for message in messages if message.get("role") != "assistant"]
 
     return {
         "example_id": example_id,
@@ -90,7 +92,8 @@ def prepare_example(example: dict[str, Any], example_id: str, split_name: str) -
         "normalized_sql": normalize_sql(assistant_sql),
         "prompt_text": prompt_text,
         "train_text": f"{prompt_text}{assistant_sql}",
-        "messages": example["messages"],
+        "messages": messages,
+        "prompt_messages": prompt_messages,
     }
 
 
