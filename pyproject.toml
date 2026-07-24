@@ -1,0 +1,19 @@
+[project]
+name = "text-to-sql"
+version = "0.1.0"
+description = "Fine-tune a causal language model for a fixed text-to-SQL schema."
+requires-python = ">=3.12"
+dependencies = [
+    "accelerate==1.14.0",
+    "datasets==5.0.0",
+    "numpy==2.3.5",
+    "peft==0.19.1",
+    "safetensors==0.8.0",
+    "scipy==1.17.1",
+    "sentencepiece==0.2.1",
+    "torch==2.13.0",
+    "transformers==5.13.0",
+]
+
+[tool.uv]
+package = false

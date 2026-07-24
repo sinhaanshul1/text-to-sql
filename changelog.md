@@ -1,5 +1,7 @@
 ## 2026-06-27
 
+- Added a `uv` project definition, lockfile, and Colab setup guide so the full text-to-SQL training environment can be recreated in an isolated virtual environment rather than modifying Colab's shared Python installation.
+- Added a pinned Colab dependency file, including a compatible NumPy/SciPy range for Colab, and improved the trainer's dependency error so it reports the original failed import instead of incorrectly implying that every package is missing.
 - Updated the training prep and baseline trainer to support tokenizer-native chat templates, including Qwen-compatible prompt rendering and assistant-only loss masking over chat-formatted examples.
 - Added `scripts/prepare_training_inputs.py` to convert split chat JSONL files into model-ready prompt/target records with prompt-only and prompt-plus-SQL text fields for baseline fine-tuning.
 - Added `scripts/train_baseline_model.py` to fine-tune a baseline causal LM on the prepared dataset with prompt token masking so loss is applied only to assistant SQL tokens.
