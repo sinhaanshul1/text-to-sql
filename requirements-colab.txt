@@ -1,0 +1,9 @@
+# Known-compatible training stack for scripts/train_baseline_model.py.
+# Do not install/upgrade torch here: Colab's preinstalled CUDA-enabled torch build
+# should be retained so it remains compatible with the assigned GPU runtime.
+transformers==5.13.0
+datasets==5.0.0
+accelerate==1.14.0
+peft==0.19.1
+sentencepiece==0.2.1
+safetensors==0.8.0

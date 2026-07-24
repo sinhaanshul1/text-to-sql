@@ -86,7 +86,12 @@ def require_training_dependencies() -> tuple[Any, Any, Any, Any, Any, Any]:
         from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments
     except ImportError as exc:  # noqa: BLE001
         raise SystemExit(
-            "Missing training dependencies. Install at least: transformers datasets torch accelerate"
+            "Unable to import the training dependencies. The packages may be installed, but "
+            "their versions may be incompatible.\n\n"
+            f"Original import error: {exc!r}\n\n"
+            "For Google Colab, install the project's pinned dependencies with:\n"
+            "  pip install -r requirements-colab.txt\n"
+            "Then restart the Colab runtime before running this script again."
         ) from exc
 
     return torch, Dataset, AutoModelForCausalLM, AutoTokenizer, TrainingArguments, Trainer
