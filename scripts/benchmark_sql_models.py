@@ -302,7 +302,7 @@ def main() -> None:
     )
     benchmark_summaries[-1]["adapter_load_seconds"] = adapter_load_seconds
 
-    from scripts.evaluate_sql_predictions import evaluate_predictions, initialize_database, load_jsonl
+    from evaluate_sql_predictions import evaluate_predictions, initialize_database, load_jsonl
 
     initialize_database(args.db_path, reset=True)
     reference_lines = load_jsonl(PROJECT_ROOT / "data" / f"{args.split}.jsonl")
