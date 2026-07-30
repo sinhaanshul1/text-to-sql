@@ -96,7 +96,10 @@ def with_rates(metrics: dict[str, Any]) -> dict[str, Any]:
 
 
 def render_prompt(record: dict[str, Any], tokenizer: Any, schema_context: str | None) -> str:
-    from scripts.train_baseline_model import build_chat_template_kwargs, render_prompt, supports_chat_template
+    # This file is executed directly (``python scripts/benchmark_sql_models.py``),
+    # so Python places ``scripts/`` rather than the repository root on sys.path.
+    # Import the sibling module accordingly.
+    from train_baseline_model import build_chat_template_kwargs, render_prompt, supports_chat_template
 
     if supports_chat_template(tokenizer):
         messages = [dict(message) for message in record["prompt_messages"]]
