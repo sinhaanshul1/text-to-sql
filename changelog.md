@@ -1,5 +1,6 @@
 ## 2026-06-27
 
+- Added a held-out base-model versus LoRA-adapter benchmark that saves SQL predictions, correctness/execution metrics, TTFT, latency, throughput, prompt-token economics, VRAM usage, and adapter footprint in JSON.
 - Made the baseline trainer compatible with the `evaluation_strategy` to `eval_strategy` rename in Transformers 5.
 - Added a `uv` project definition, lockfile, and Colab setup guide so the full text-to-SQL training environment can be recreated in an isolated virtual environment rather than modifying Colab's shared Python installation.
 - Added a pinned Colab dependency file, including a compatible NumPy/SciPy range for Colab, and improved the trainer's dependency error so it reports the original failed import instead of incorrectly implying that every package is missing.

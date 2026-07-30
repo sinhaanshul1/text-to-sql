@@ -210,14 +210,9 @@ def write_failures(path: Path, failures: list[dict[str, Any]]) -> None:
     path.write_text(serialized, encoding="utf-8")
 
 
-def main() -> None:
-    args = parse_args()
-
-    if args.refresh_db or not args.db_path.exists():
-        initialize_database(args.db_path, reset=True)
-
-    reference_lines = load_jsonl(args.reference_path)
-    prediction_lines = load_jsonl(args.predictions_path)
+def evaluate_predictions(
+    reference_lines: list[str], prediction_lines: list[str], db_path: Path
+) -> tuple[dict[str, dict[str, int]], list[dict[str, Any]]]:
 
     if len(reference_lines) != len(prediction_lines):
         raise ValueError(
@@ -236,7 +231,7 @@ def main() -> None:
     )
     failures: list[dict[str, Any]] = []
 
-    with sqlite3.connect(args.db_path) as seed_connection:
+    with sqlite3.connect(db_path) as seed_connection:
         for index, (reference_line, prediction_line) in enumerate(
             zip(reference_lines, prediction_lines, strict=True), start=1
         ):
@@ -280,18 +275,35 @@ def main() -> None:
                     }
                 )
 
+    return {
+        "overall": overall_metrics,
+        "by_statement_group": dict(per_group_metrics),
+    }, failures
+
+
+def main() -> None:
+    args = parse_args()
+
+    if args.refresh_db or not args.db_path.exists():
+        initialize_database(args.db_path, reset=True)
+
+    reference_lines = load_jsonl(args.reference_path)
+    prediction_lines = load_jsonl(args.predictions_path)
+    metrics, failures = evaluate_predictions(reference_lines, prediction_lines, args.db_path)
+
     total_examples = len(reference_lines)
     print(f"Examples evaluated: {total_examples}")
     print("Overall metrics:")
-    for metric_name, value in overall_metrics.items():
+    for metric_name, value in metrics["overall"].items():
         print(f"- {metric_name}: {format_metric(value, total_examples)}")
 
     print("Metrics by statement group:")
-    for group_name in sorted(per_group_metrics):
-        group_total = per_group_metrics[group_name]["count"]
+    for group_name in sorted(metrics["by_statement_group"]):
+        group_metrics = metrics["by_statement_group"][group_name]
+        group_total = group_metrics["count"]
         print(f"- {group_name}:")
         for metric_name in ("exact_match", "normalized_match", "prediction_executable", "result_match"):
-            print(f"  - {metric_name}: {format_metric(per_group_metrics[group_name][metric_name], group_total)}")
+            print(f"  - {metric_name}: {format_metric(group_metrics[metric_name], group_total)}")
 
     if args.skip_failure_log:
         print("Failure log skipped.")
