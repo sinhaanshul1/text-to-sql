@@ -274,21 +274,30 @@ def main() -> None:
     train_dataset = Dataset.from_list(tokenize_records(train_records))
     valid_dataset = Dataset.from_list(tokenize_records(valid_records))
 
+    training_argument_values: dict[str, Any] = {
+        "output_dir": str(args.output_dir),
+        "learning_rate": args.learning_rate,
+        "per_device_train_batch_size": args.train_batch_size,
+        "per_device_eval_batch_size": args.eval_batch_size,
+        "gradient_accumulation_steps": args.gradient_accumulation_steps,
+        "num_train_epochs": args.num_train_epochs,
+        "weight_decay": args.weight_decay,
+        "warmup_ratio": args.warmup_ratio,
+        "logging_steps": args.logging_steps,
+        "save_strategy": args.save_strategy,
+        "report_to": [],
+        "fp16": torch.cuda.is_available(),
+        "remove_unused_columns": False,
+    }
+    training_argument_names = inspect.signature(TrainingArguments).parameters
+    if "eval_strategy" in training_argument_names:
+        # Transformers 5 renamed this parameter from evaluation_strategy.
+        training_argument_values["eval_strategy"] = args.evaluation_strategy
+    else:
+        training_argument_values["evaluation_strategy"] = args.evaluation_strategy
+
     training_arguments = TrainingArguments(
-        output_dir=str(args.output_dir),
-        learning_rate=args.learning_rate,
-        per_device_train_batch_size=args.train_batch_size,
-        per_device_eval_batch_size=args.eval_batch_size,
-        gradient_accumulation_steps=args.gradient_accumulation_steps,
-        num_train_epochs=args.num_train_epochs,
-        weight_decay=args.weight_decay,
-        warmup_ratio=args.warmup_ratio,
-        logging_steps=args.logging_steps,
-        save_strategy=args.save_strategy,
-        evaluation_strategy=args.evaluation_strategy,
-        report_to=[],
-        fp16=torch.cuda.is_available(),
-        remove_unused_columns=False,
+        **training_argument_values,
     )
 
     trainer = Trainer(
