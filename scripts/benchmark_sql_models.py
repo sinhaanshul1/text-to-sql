@@ -99,7 +99,7 @@ def render_prompt(record: dict[str, Any], tokenizer: Any, schema_context: str | 
     # This file is executed directly (``python scripts/benchmark_sql_models.py``),
     # so Python places ``scripts/`` rather than the repository root on sys.path.
     # Import the sibling module accordingly.
-    from train_baseline_model import build_chat_template_kwargs, render_prompt, supports_chat_template
+    from train_baseline_model import build_chat_template_kwargs, supports_chat_template
 
     if supports_chat_template(tokenizer):
         messages = [dict(message) for message in record["prompt_messages"]]
@@ -115,7 +115,7 @@ def render_prompt(record: dict[str, Any], tokenizer: Any, schema_context: str | 
     system_prompt = str(record["system_prompt"])
     if schema_context:
         system_prompt = f"{system_prompt.rstrip()}\n\nDatabase schema:\n{schema_context}"
-    return render_prompt(system_prompt, str(record["user_prompt"]))
+    return f"{system_prompt}\n\nUser: {record['user_prompt']}\nAssistant:"
 
 
 @dataclass
