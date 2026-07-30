@@ -1,5 +1,6 @@
 ## 2026-06-27
 
+- Added a Colab artifact-persistence script and setup instructions to copy trained adapters, evaluation metrics, benchmark reports, predictions, and failure logs from temporary runtime storage to Google Drive.
 - Added a held-out base-model versus LoRA-adapter benchmark that saves SQL predictions, correctness/execution metrics, TTFT, latency, throughput, prompt-token economics, VRAM usage, and adapter footprint in JSON.
 - Made the baseline trainer compatible with the `evaluation_strategy` to `eval_strategy` rename in Transformers 5.
 - Added a `uv` project definition, lockfile, and Colab setup guide so the full text-to-SQL training environment can be recreated in an isolated virtual environment rather than modifying Colab's shared Python installation.
