@@ -1,6 +1,5 @@
 AGENTS.md
 changelog.md
-*.md
 .venv/
 .env
 .env.*
