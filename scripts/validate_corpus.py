@@ -5,11 +5,14 @@ import json
 import sqlite3
 import sys
 from pathlib import Path
+from typing import Any
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DATASET_PATH = PROJECT_ROOT / "data" / "training_corpus.jsonl"
 DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "shopify_sample.db"
+ALLOWED_MESSAGE_ROLES = ("system", "user", "assistant")
+ALLOWED_STATEMENT_TYPES = {"SELECT", "INSERT", "UPDATE", "DELETE"}
 
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -41,20 +44,67 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def extract_message(example: dict, role: str) -> str:
-    for message in example.get("messages", []):
-        if message.get("role") == role:
-            return message.get("content", "")
-    raise ValueError(f"Missing {role!r} message")
+def load_example(line_number: int, raw_line: str) -> dict[str, Any]:
+    try:
+        example = json.loads(raw_line)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"line {line_number}: invalid JSON: {exc.msg}") from exc
+
+    if not isinstance(example, dict):
+        raise ValueError(f"line {line_number}: example must be a JSON object")
+
+    return example
 
 
-def validate_example(connection: sqlite3.Connection, line_number: int, raw_line: str) -> tuple[str, str]:
-    example = json.loads(raw_line)
-    user_prompt = extract_message(example, "user")
-    assistant_sql = extract_message(example, "assistant").strip()
+def statement_type(sql: str) -> str:
+    stripped_sql = sql.lstrip()
+    if not stripped_sql:
+        return "UNKNOWN"
 
-    if not assistant_sql:
-        raise ValueError("Assistant SQL is empty")
+    statement = stripped_sql.split(None, 1)[0].upper()
+    if statement == "WITH":
+        return "SELECT"
+    return statement
+
+
+def validate_messages(line_number: int, example: dict[str, Any]) -> tuple[str, str, str]:
+    messages = example.get("messages")
+    if not isinstance(messages, list):
+        raise ValueError(f"line {line_number}: messages must be a list")
+
+    if len(messages) != len(ALLOWED_MESSAGE_ROLES):
+        raise ValueError(
+            f"line {line_number}: expected exactly {len(ALLOWED_MESSAGE_ROLES)} messages "
+            f"({', '.join(ALLOWED_MESSAGE_ROLES)}), found {len(messages)}"
+        )
+
+    extracted: dict[str, str] = {}
+    for index, (message, expected_role) in enumerate(zip(messages, ALLOWED_MESSAGE_ROLES, strict=True), start=1):
+        if not isinstance(message, dict):
+            raise ValueError(f"line {line_number}: message {index} must be an object")
+
+        role = message.get("role")
+        if role != expected_role:
+            raise ValueError(
+                f"line {line_number}: message {index} must have role {expected_role!r}, found {role!r}"
+            )
+
+        content = message.get("content")
+        if not isinstance(content, str) or not content.strip():
+            raise ValueError(f"line {line_number}: {role!r} message content must be a non-empty string")
+
+        extracted[role] = content.strip()
+
+    return extracted["system"], extracted["user"], extracted["assistant"]
+
+
+def validate_assistant_sql(connection: sqlite3.Connection, line_number: int, assistant_sql: str) -> None:
+    statement = statement_type(assistant_sql)
+    if statement not in ALLOWED_STATEMENT_TYPES:
+        raise ValueError(
+            f"line {line_number}: unsupported SQL statement type {statement!r}; "
+            f"expected one of {sorted(ALLOWED_STATEMENT_TYPES)}"
+        )
 
     connection.execute("BEGIN;")
     try:
@@ -68,6 +118,17 @@ def validate_example(connection: sqlite3.Connection, line_number: int, raw_line:
         raise
     else:
         connection.rollback()
+
+
+def validate_example(connection: sqlite3.Connection, line_number: int, raw_line: str) -> tuple[str, str]:
+    example = load_example(line_number, raw_line)
+    _system_prompt, user_prompt, assistant_sql = validate_messages(line_number, example)
+    assistant_sql = assistant_sql.strip()
+
+    if not assistant_sql:
+        raise ValueError(f"line {line_number}: assistant SQL is empty")
+
+    validate_assistant_sql(connection, line_number, assistant_sql)
 
     return user_prompt, assistant_sql
 
