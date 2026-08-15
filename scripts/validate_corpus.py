@@ -16,7 +16,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from data.init_db import initialize_database  # noqa: E402
 
-
+# Parse args to teh script.
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Validate that every fine-tuning corpus example contains valid JSON and executable SQL."
